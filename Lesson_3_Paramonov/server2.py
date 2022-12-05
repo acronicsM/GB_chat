@@ -26,51 +26,60 @@ def createParser():
     parser.add_argument('port', nargs='?', type=int, default='7777')
     return parser.parse_args()
 
-s = socket(AF_INET, SOCK_STREAM)  # Создает сокет TCP
-s.bind((HOST, PORT))  # Присваивает порт 8888
-s.listen(5)  # Переходит в режим ожидания запросов; Одновременно обслуживает не более; 5 запросов.
-
 
 def encode_message(message: dict) -> bytes:
     return json.dumps(message).encode('utf-8')
 
 
 def response_presence(message: dict) -> bytes:
-    response =  {
-        "response": 200,
-        'time': datetime.now().timestamp(),
-    }
-
-    return encode_message(response)
+    return encode_message({"response": 200, 'time': datetime.now().timestamp(),})
 
 
-def response_error() -> bytes:
-    response = {
-        "response": 400,
-        'time': datetime.now().timestamp(),
-        "error": "Wrong action, try again",
-    }
-    return encode_message(response)
+def response_error(error) -> bytes:
+    return encode_message({"response": 400, 'time': datetime.now().timestamp(), "error": error, })
 
 
 def read_message(message: bytes) -> bytes:
-    data = json.loads(message.decode('utf-8'))
+
+    if not message:
+        response_error('Пустой запрос клиента')
+
+    try:
+        data = json.loads(message.decode('utf-8'))
+    except ValueError:
+        return response_error('Ошибка разбора запроса клиента')
 
     print(f'Пришло сообщение\n{data}')
 
     if not ('action' in data and 'time' in data):
-        return response_error()
+        return response_error('Отсутсвуют обязательные параметры "action" "time"')
 
     if data['action'] == 'presence':
         return response_presence(data)
 
+    return response_error('Неизвестный "action"')
 
-parser = createParser()
-HOST = parser.host
-PORT = parser.port
 
-while True:
-    client, addr = s.accept()
-    data = client.recv(1000000)
-    client.send( read_message(data))
-    client.close()
+def main():
+    transport = socket(AF_INET, SOCK_STREAM)
+    # transport.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    transport.bind((HOST, PORT))
+
+    # Слушаем порт
+    transport.listen(1)
+
+    while True:
+        client, addr = transport.accept()
+        message_from_cient = client.recv(1024)
+
+        response = read_message(message_from_cient)
+
+        client.send(response)
+        client.close()
+
+
+if __name__ == '__main__':
+    parser = createParser()
+    HOST, PORT = parser.host, parser.port
+
+    main()

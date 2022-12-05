@@ -17,10 +17,10 @@ import argparse
 from socket import *
 from datetime import datetime
 import json
-import sys
 
 HOST: str = 'localhost'
-PORT: int = 7777
+PORT: int = 8888
+ACCOUNT_NAME = 'guest'
 
 
 def createParser():
@@ -30,39 +30,68 @@ def createParser():
     return parser.parse_args()
 
 
-def connector(host: str, port: int) -> socket:
-    s = socket(AF_INET, SOCK_STREAM)  # Создать сокет TCP
-    s.connect((host, port))  # Соединиться с сервером
+def connector(host: str, port: int) -> tuple:
+    try:
+        s = socket(AF_INET, SOCK_STREAM)  # Создать сокет TCP
+        s.connect((host, port))  # Соединиться с сервером
+    except ConnectionError:
+        return None, False
 
-    return s
+    return s, True
 
 
 def decode_message(message: bytes) -> dict:
-    return json.loads(message.decode('utf-8'))
 
+    if not message:
+        return {'Error': 400, 'msg': 'Пустой ответ сервера'}
 
-def presence(status: str = None) -> bytes:
-
-    message = {
-        'action': 'presence',
-        'time': datetime.now().timestamp(),
-        'type': status,
-    }
-
-    return encode_message(message)
+    try:
+        return json.loads(message.decode('utf-8'))
+    except ValueError:
+        return {'Error': 400, 'msg': f'Ошибка разбора ответа сервера: {message}'}
 
 
 def encode_message(message: dict) -> bytes:
     return json.dumps(message).encode('utf-8')
 
 
-parser = createParser()
-HOST = parser.host
-PORT = parser.port
+def send_presence(connect_socket: socket) -> bytes:
+    message = {
+        'action': 'presence',
+        'time': datetime.now().timestamp(),
+        'type': 'Работаю',
+        'USER': {
+            'ACCOUNT_NAME': ACCOUNT_NAME
+        }
+    }
 
-connect = connector(HOST, PORT)
-connect.send(presence(status='Работаю'))
-data = connect.recv(1024)
+    message_text = encode_message(message)
 
-print(f'Пришло сообщение\n{decode_message(data)}')
-connect.close()
+    connect_socket.send(message_text)
+
+    return connect_socket.recv(1024)
+
+
+def checking_response(data: dict) -> bool:
+    if 'response' not in data\
+            and data['response'] == 200:
+        pass
+
+
+if __name__ == "__main__":
+    parser = createParser()
+    HOST = parser.host
+    PORT = parser.port
+
+    connect = connector(HOST, PORT)
+    if connect[1]:
+        connect = connect[0]
+    else:
+        exit('ошибка подключения к серверу')
+
+    response = send_presence(connect)
+
+    data = decode_message(response)
+    connect.close()
+
+    print(f'Пришло сообщение\n{data}')
