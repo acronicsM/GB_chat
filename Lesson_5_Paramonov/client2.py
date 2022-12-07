@@ -1,22 +1,12 @@
-# Программа клиента для отправки приветствия серверу и получения ответа
 
-"""
-клиент отправляет запрос серверу;
-сервер отвечает соответствующим кодом результата.
-Клиент и сервер должны быть реализованы в виде отдельных скриптов, содержащих соответствующие функции.
-Функции клиента:
-1) сформировать presence-сообщение;
-2) отправить сообщение серверу;
-3) получить ответ сервера;
-4) разобрать сообщение сервера;
-5) параметры командной строки скрипта client.py <addr> [<port>]:
-                                                                addr — ip-адрес сервера;
-                                                                port — tcp-порт на сервере, по умолчанию 7777.
-"""
 import argparse
 from socket import *
 from datetime import datetime
 import json
+import logging
+import log.client_log_config
+
+logger = logging.getLogger('chat.client')
 
 HOST: str = 'localhost'
 PORT: int = 8888
@@ -34,7 +24,9 @@ def connector(host: str, port: int) -> tuple:
     try:
         s = socket(AF_INET, SOCK_STREAM)  # Создать сокет TCP
         s.connect((host, port))  # Соединиться с сервером
+        logger.info(f'соединение установлено: {host}:{port}')
     except ConnectionError:
+        logger.error(f'ConnectionError {host}:{port}', exc_info=True)
         return None, False
 
     return s, True
@@ -43,11 +35,13 @@ def connector(host: str, port: int) -> tuple:
 def decode_message(message: bytes) -> dict:
 
     if not message:
+        logger.warning(f'Сообщение пустое: {message}')
         return {'Error': 400, 'msg': 'Пустой ответ сервера'}
 
     try:
         return json.loads(message.decode('utf-8'))
     except ValueError:
+        logger.error(f'Ошибка json разбора: {message}')
         return {'Error': 400, 'msg': f'Ошибка разбора ответа сервера: {message}'}
 
 
@@ -73,12 +67,12 @@ def send_presence(connect_socket: socket) -> bytes:
 
 
 def checking_response(data: dict) -> bool:
-    if 'response' not in data\
-            and data['response'] == 200:
+    if 'response' not in data and data['response'] == 200:
         pass
 
 
 if __name__ == "__main__":
+    logger.info('Старт клиента')
     parser = createParser()
     HOST = parser.host
     PORT = parser.port
