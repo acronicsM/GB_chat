@@ -7,7 +7,7 @@ logger = logging.getLogger('chat.client')
 _log_format = f"%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
 formatter = logging.Formatter(_log_format)
 
-file_handler = TimedRotatingFileHandler('chat.client.log', encoding='utf-8', when="S", interval=1, backupCount=7)
+file_handler = TimedRotatingFileHandler('chat.client.log', encoding='utf-8', when="midnight", interval=1, backupCount=7)
 file_handler.setLevel(logging.INFO)
 file_handler.suffix = "%Y-%m-%d"
 file_handler.setFormatter(formatter)

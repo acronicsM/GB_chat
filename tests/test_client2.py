@@ -1,5 +1,5 @@
 import unittest
-import Lesson_3_Paramonov.client2 as client2
+import Lesson_5_Paramonov.client2 as client2
 
 
 class TestClient2(unittest.TestCase):
