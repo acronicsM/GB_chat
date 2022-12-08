@@ -1,24 +1,15 @@
-# Программа сервера для получения приветствия от клиента и отправки ответа
-
-"""
-клиент отправляет запрос серверу;
-сервер отвечает соответствующим кодом результата.
-Клиент и сервер должны быть реализованы в виде отдельных скриптов, содержащих соответствующие функции.
-Функции сервера:
-1) принимает сообщение клиента;
-2) формирует ответ клиенту;
-3) отправляет ответ клиенту;
-4) имеет параметры командной строки:
-                                    -p <port> — TCP-порт для работы (по умолчанию использует 7777);
-                                    -a <addr> — IP-адрес для прослушивания (по умолчанию слушает все доступные адреса).
-"""
 import argparse
 from socket import *
 from datetime import datetime
 import json
+import logging
+import log.server_log_config
+
+logger = logging.getLogger('chat.server')
 
 HOST: str = 'localhost'
 PORT: int = 7777
+
 
 def createParser():
     parser = argparse.ArgumentParser()
@@ -32,7 +23,7 @@ def encode_message(message: dict) -> bytes:
 
 
 def response_presence(message: dict) -> bytes:
-    return encode_message({"response": 200, 'time': datetime.now().timestamp(),})
+    return encode_message({"response": 200, 'time': datetime.now().timestamp(), })
 
 
 def response_error(error) -> bytes:
@@ -40,6 +31,7 @@ def response_error(error) -> bytes:
 
 
 def read_message(message: bytes) -> bytes:
+    logger.info(f'Чтение сообщения: {message}')
 
     if not message:
         response_error('Пустой запрос клиента')
@@ -47,20 +39,24 @@ def read_message(message: bytes) -> bytes:
     try:
         data = json.loads(message.decode('utf-8'))
     except ValueError:
+        logger.error(f'Ошибка json разбора: {message}')
         return response_error('Ошибка разбора запроса клиента')
 
     print(f'Пришло сообщение\n{data}')
 
     if not ('action' in data and 'time' in data):
+        logger.warning(f'Неверный формат сообщения: {message}')
         return response_error('Отсутсвуют обязательные параметры "action" "time"')
 
     if data['action'] == 'presence':
         return response_presence(data)
 
+    logger.warning(f'Неизвестная команда: {data["action"]}')
     return response_error('Неизвестный "action"')
 
 
 def main():
+    logger.info(f'Старт сервера')
     transport = socket(AF_INET, SOCK_STREAM)
     # transport.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     transport.bind((HOST, PORT))

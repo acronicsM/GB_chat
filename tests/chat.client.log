@@ -1,0 +1,8 @@
+2022-12-07 16:44:01,582 - [ERROR] - chat.client - (client2.py).connector(29) - ConnectionError localhost:8777
+Traceback (most recent call last):
+  File "C:\Users\1C\PycharmProjects\GB_chat\Lesson_5_Paramonov\client2.py", line 26, in connector
+    s.connect((host, port))  # Соединиться с сервером
+ConnectionRefusedError: [WinError 10061] Подключение не установлено, т.к. конечный компьютер отверг запрос на подключение
+2022-12-07 16:44:01,602 - [ERROR] - chat.client - (client2.py).decode_message(44) - Ошибка json разбора: b'dfdsfdf'
+2022-12-07 16:44:01,605 - [WARNING] - chat.client - (client2.py).decode_message(38) - Сообщение пустое: b''
+2022-12-07 16:44:01,619 - [INFO] - chat.client - (client2.py).connector(27) - соединение установлено: localhost:7777

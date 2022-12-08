@@ -1,6 +1,6 @@
 import json
 import unittest
-import Lesson_3_Paramonov.server2 as server2
+import Lesson_5_Paramonov.server2 as server2
 
 
 def decode_message(message: bytes) -> dict:
