@@ -1,5 +1,6 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler
+from functools import wraps
 
 logger = logging.getLogger('chat.server')
 

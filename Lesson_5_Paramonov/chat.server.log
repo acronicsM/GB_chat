@@ -1,3 +1,6 @@
-2022-12-07 16:43:43,723 - [INFO] - chat.server - (server2.py).main(59) - Старт сервера
-2022-12-07 16:43:46,546 - [INFO] - chat.server - (server2.py).read_message(34) - Чтение сообщения: b'{"action": "presence", "time": 1670420626.546317, "type": "\\u0420\\u0430\\u0431\\u043e\\u0442\\u0430\\u044e", "USER": {"ACCOUNT_NAME": "guest"}}'
-2022-12-07 16:44:01,619 - [INFO] - chat.server - (server2.py).read_message(34) - Чтение сообщения: b'{"action": "presence", "time": 1670420641.619824, "type": "\\u0420\\u0430\\u0431\\u043e\\u0442\\u0430\\u044e", "USER": {"ACCOUNT_NAME": "guest"}}'
+2022-12-13 11:21:40,208 - [INFO] - chat.server - (logger_func.py).wrapper(9) - Функция main вызвана из функции <module>
+2022-12-13 11:21:40,208 - [INFO] - chat.server - (server2.py).main(65) - Старт сервера
+2022-12-13 11:21:42,520 - [INFO] - chat.server - (logger_func.py).wrapper(9) - Функция read_message вызвана из функции main
+2022-12-13 11:21:42,520 - [INFO] - chat.server - (server2.py).read_message(39) - Чтение сообщения: b'{"action": "presence", "time": 1670919702.518698, "type": "\\u0420\\u0430\\u0431\\u043e\\u0442\\u0430\\u044e", "USER": {"ACCOUNT_NAME": "guest"}}'
+2022-12-13 11:21:42,521 - [INFO] - chat.server - (logger_func.py).wrapper(9) - Функция response_presence вызвана из функции read_message
+2022-12-13 11:21:42,522 - [INFO] - chat.server - (logger_func.py).wrapper(9) - Функция encode_message вызвана из функции response_presence

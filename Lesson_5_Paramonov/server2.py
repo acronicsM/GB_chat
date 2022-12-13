@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 import logging
 import log.server_log_config
+from log.logger_func import log_func
 
 logger = logging.getLogger('chat.server')
 
@@ -18,18 +19,22 @@ def createParser():
     return parser.parse_args()
 
 
+@log_func(logger)
 def encode_message(message: dict) -> bytes:
     return json.dumps(message).encode('utf-8')
 
 
+@log_func(logger)
 def response_presence(message: dict) -> bytes:
     return encode_message({"response": 200, 'time': datetime.now().timestamp(), })
 
 
+@log_func(logger)
 def response_error(error) -> bytes:
     return encode_message({"response": 400, 'time': datetime.now().timestamp(), "error": error, })
 
 
+@log_func(logger)
 def read_message(message: bytes) -> bytes:
     logger.info(f'Чтение сообщения: {message}')
 
@@ -55,6 +60,7 @@ def read_message(message: bytes) -> bytes:
     return response_error('Неизвестный "action"')
 
 
+@log_func(logger)
 def main():
     logger.info(f'Старт сервера')
     transport = socket(AF_INET, SOCK_STREAM)
