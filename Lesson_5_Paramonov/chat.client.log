@@ -1,0 +1,6 @@
+2022-12-13 11:21:42,490 - [INFO] - chat.client - (client2.py).<module>(83) - Старт клиента
+2022-12-13 11:21:42,515 - [INFO] - chat.client - (logger_func.py).wrapper(9) - Функция connector вызвана из функции <module>
+2022-12-13 11:21:42,518 - [INFO] - chat.client - (client2.py).connector(30) - соединение установлено: localhost:7777
+2022-12-13 11:21:42,518 - [INFO] - chat.client - (logger_func.py).wrapper(9) - Функция send_presence вызвана из функции <module>
+2022-12-13 11:21:42,519 - [INFO] - chat.client - (logger_func.py).wrapper(9) - Функция encode_message вызвана из функции send_presence
+2022-12-13 11:21:42,523 - [INFO] - chat.client - (logger_func.py).wrapper(9) - Функция decode_message вызвана из функции <module>
