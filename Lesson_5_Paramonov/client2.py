@@ -5,6 +5,8 @@ from datetime import datetime
 import json
 import logging
 import log.client_log_config
+from log.logger_func import log_func
+
 
 logger = logging.getLogger('chat.client')
 
@@ -20,6 +22,7 @@ def createParser():
     return parser.parse_args()
 
 
+@log_func(logger)
 def connector(host: str, port: int) -> tuple:
     try:
         s = socket(AF_INET, SOCK_STREAM)  # Создать сокет TCP
@@ -32,6 +35,7 @@ def connector(host: str, port: int) -> tuple:
     return s, True
 
 
+@log_func(logger)
 def decode_message(message: bytes) -> dict:
 
     if not message:
@@ -45,10 +49,13 @@ def decode_message(message: bytes) -> dict:
         return {'Error': 400, 'msg': f'Ошибка разбора ответа сервера: {message}'}
 
 
+@log_func(logger)
 def encode_message(message: dict) -> bytes:
     return json.dumps(message).encode('utf-8')
 
 
+
+@log_func(logger)
 def send_presence(connect_socket: socket) -> bytes:
     message = {
         'action': 'presence',
@@ -66,6 +73,7 @@ def send_presence(connect_socket: socket) -> bytes:
     return connect_socket.recv(1024)
 
 
+@log_func(logger)
 def checking_response(data: dict) -> bool:
     if 'response' not in data and data['response'] == 200:
         pass

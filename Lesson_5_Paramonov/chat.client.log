@@ -1,2 +1,0 @@
-2022-12-07 16:43:46,533 - [INFO] - chat.client - (client2.py).<module>(75) - Старт клиента
-2022-12-07 16:43:46,546 - [INFO] - chat.client - (client2.py).connector(27) - соединение установлено: localhost:7777

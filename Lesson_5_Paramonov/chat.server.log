@@ -1,3 +1,0 @@
-2022-12-07 16:43:43,723 - [INFO] - chat.server - (server2.py).main(59) - Старт сервера
-2022-12-07 16:43:46,546 - [INFO] - chat.server - (server2.py).read_message(34) - Чтение сообщения: b'{"action": "presence", "time": 1670420626.546317, "type": "\\u0420\\u0430\\u0431\\u043e\\u0442\\u0430\\u044e", "USER": {"ACCOUNT_NAME": "guest"}}'
-2022-12-07 16:44:01,619 - [INFO] - chat.server - (server2.py).read_message(34) - Чтение сообщения: b'{"action": "presence", "time": 1670420641.619824, "type": "\\u0420\\u0430\\u0431\\u043e\\u0442\\u0430\\u044e", "USER": {"ACCOUNT_NAME": "guest"}}'
