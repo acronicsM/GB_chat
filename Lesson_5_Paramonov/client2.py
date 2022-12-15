@@ -1,18 +1,17 @@
-
-import argparse
 from socket import *
+from select import select
 from datetime import datetime
-import json
-import logging
+import json, logging, argparse
 import log.client_log_config
 from log.logger_func import log_func
+from random import randint
 
-
+fmt = '%Y-%m-%d %H:%M:%S'
 logger = logging.getLogger('chat.client')
 
 HOST: str = 'localhost'
-PORT: int = 8888
-ACCOUNT_NAME = 'guest'
+PORT: int = 7777
+ACCOUNT_NAME = f'guest{randint(1, 99999999)}'
 
 
 def createParser():
@@ -56,7 +55,7 @@ def encode_message(message: dict) -> bytes:
 
 
 @log_func(logger)
-def send_presence(connect_socket: socket) -> bytes:
+def send_presence(connect_socket: socket) -> bool:
     message = {
         'action': 'presence',
         'time': datetime.now().timestamp(),
@@ -66,34 +65,79 @@ def send_presence(connect_socket: socket) -> bytes:
         }
     }
 
-    message_text = encode_message(message)
+    connect_socket.send(encode_message(message))
 
-    connect_socket.send(message_text)
-
-    return connect_socket.recv(1024)
-
-
-@log_func(logger)
-def checking_response(data: dict) -> bool:
-    if 'response' not in data and data['response'] == 200:
+    response = connect_socket.recv(1024)
+    is200 = False
+    try:
+        is200 = decode_message(response)['response'] == 200
+    except:
         pass
+
+    if not is200:
+        logger.warning(f'Ошибка приветсвия {response}')
+
+    return is200
+
+
+def send_message(sock):
+    msg = {
+        'action': 'message',
+        'time': datetime.now().timestamp(),
+        'msg': input('Ваше сообщение: '),
+        'USER': {
+            'ACCOUNT_NAME': ACCOUNT_NAME,
+            'chat_id': 1,
+        }
+    }
+
+    sock.send(encode_message(msg))  # Отправить!
+
+    response = sock.recv(1024)
+    response = decode_message(response)
+    is200 = False
+    try:
+        is200 = response['response'] == 200
+    except:
+        pass
+
+    if not is200:
+        logger.info(f'сообщение не доставлено {response}')
+        return
+
+    print('[СИСТЕМА]: сообщение доставлено')
+
+    for i in response['new_msg']:
+        print(f'{datetime.utcfromtimestamp(i["time"]).strftime(fmt)}[{i["acc"]}]: {i["msg"]}')
+
+
+
+
+
+
+
+def start_client():
+    logger.info('Старт клиента')
+
+    parser = createParser()
+
+    with socket(AF_INET, SOCK_STREAM) as sock: # Создать сокет TCP
+        try:
+            sock.connect((parser.host, parser.port)) # Соединиться с сервером
+            logger.info(f'Установлено соединение с сервером {parser.host}:{parser.port}')
+        except ConnectionRefusedError:
+            logger.error(f'Ошибка установки соединения с сервером {parser.host}:{parser.port}')
+            return
+
+        # Приветсвие
+        if not send_presence(sock):
+            logger.error(f'Ошибка установки соединения с сервером {parser.host}:{parser.port}')
+            return
+
+        while True:
+           send_message(sock)
 
 
 if __name__ == "__main__":
-    logger.info('Старт клиента')
-    parser = createParser()
-    HOST = parser.host
-    PORT = parser.port
+    start_client()
 
-    connect = connector(HOST, PORT)
-    if connect[1]:
-        connect = connect[0]
-    else:
-        exit('ошибка подключения к серверу')
-
-    response = send_presence(connect)
-
-    data = decode_message(response)
-    connect.close()
-
-    print(f'Пришло сообщение\n{data}')
