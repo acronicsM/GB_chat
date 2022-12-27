@@ -17,7 +17,6 @@ logger.addHandler(file_handler)
 logger.setLevel(logging.DEBUG)
 
 
-
 if __name__ == '__main__':
     # Создаем потоковый обработчик логирования (по умолчанию sys.stderr):
     console = logging.StreamHandler()
