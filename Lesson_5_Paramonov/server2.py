@@ -1,29 +1,139 @@
 import argparse
-import json
 import logging
 from datetime import datetime
 from socket import socket, AF_INET, SOCK_STREAM
-
 from select import select
-
 import log.server_log_config
 from log.logger_func import log_func
+from meta import ServerVerifier, Port
+from common.utils import *
 
 logger = logging.getLogger('chat.server')
 
-HOST: str = 'localhost'
-PORT: int = 7777
-MAX_CONNECTIONS = 5
 
-MAX_PACKAGE_LENGTH = 1024
-ACTION = 'action'
-PRESENCE = 'presence'
-MESSAGE = 'message'
-TIME = 'time'
-MESSAGE_TEXT = 'msg'
-ACC = 'ACCOUNT_NAME'
-CHATID = 'chat_id'
-EXIT = 'exit'
+# Основной класс сервера
+class Server(metaclass=ServerVerifier):
+    port = Port()
+
+    def __init__(self, host_addres, port):
+        # Параментры подключения
+        self.addr = host_addres
+        self.port = port
+        self.clients = []  # список клиентов
+        self.messages = []  # очередь сообщений
+        self.chats = dict()  # список чатов
+
+    def init_socket(self):
+        logger.info(f'Запущен сервер: {self.addr}:{self.port}')
+
+        transport = socket(AF_INET, SOCK_STREAM)
+        transport.bind((self.addr, self.port))
+        transport.settimeout(0.5)
+
+        # Начинаем слушать сокет.
+        self.sock = transport
+        self.sock.listen()
+
+    def main_loop(self):
+        self.init_socket()
+
+        while True:
+            try:
+                client, client_address = self.sock.accept()
+            except OSError:
+                pass
+            else:
+                print("Получен запрос на соединение от %s" % str(client_address))
+                self.clients.append(client)
+
+            recv_data_lst, send_data_lst, err_lst = [], [], []
+
+            # Проверяем на наличие ждущих клиентов
+            try:
+                if self.clients:
+                    recv_data_lst, send_data_lst, err_lst = select(self.clients, self.clients, [], 0)
+            except OSError:
+                pass
+
+            # принимаем сообщения и если ошибка, исключаем клиента.
+            if recv_data_lst:
+                for client_with_message in recv_data_lst:
+                    try:
+                        self.process_client_message(get_message(client_with_message), client_with_message)
+                    except:
+                        logger.info(f'Клиент {client_with_message.getpeername()} отключился от сервера.')
+                        self.clients.remove(client_with_message)
+
+            # Если есть сообщения, обрабатываем каждое.
+            for i in self.messages:
+                acc, chat_id = i[ACC], i[CHATID]
+                try:
+                    self.process_message(i, send_data_lst)
+                except Exception as e:
+                    logger.info(f'Связь с клиентом с именем {acc} была потеряна: {e}')
+                    self.clients.remove(self.chats[chat_id][acc])
+                    self.chats[chat_id].pop(acc)
+            self.messages.clear()
+
+    def process_message(self, message, listen_socks):
+        acc, chat_id = message[ACC], message[CHATID]
+
+        on_acc = []
+        if chat_id in self.chats:
+            for recipient, sock in self.chats[chat_id].items():
+                on_acc.append(sock in listen_socks)
+                if recipient != acc and sock in listen_socks:
+                    send_message(sock, encode_message(message))
+                    logger.info(f'Отправлено сообщение пользователю {acc} в чат {chat_id}.')
+        else:
+            logger.error(f'Чат {chat_id} не зарегистрирован на сервере, отправка сообщения невозможна.')
+
+        if not any(on_acc):
+            raise ConnectionError
+
+    def process_client_message(self, message, client):
+        logger.debug(f'Разбор сообщения от клиента : {message}')
+
+        is_presence = ACTION in message and message[ACTION] == PRESENCE
+        is_message = ACTION in message and message[ACTION] == MESSAGE
+        is_exit = ACTION in message and message[ACTION] == EXIT
+        is_true_msg = TIME in message and CHATID in message and ACC in message
+
+        if not is_true_msg:  # Нет минимальных параметров
+            send_message(client, response_error('Запрос некорректен.'))
+            return
+
+        chat_id = message[CHATID]
+        acc = message[ACC]
+
+        # Если это сообщение о присутствии, принимаем и отвечаем
+        if is_presence:
+            # Если такой пользователь ещё не зарегистрирован, регистрируем, иначе отправляем ответ и завершаем соединение.
+            if chat_id not in self.chats:
+                self.chats[chat_id] = {acc: client}
+                send_message(client, response_presence())
+            elif acc not in self.chats[chat_id]:
+                self.chats[chat_id][acc] = client
+                send_message(client, response_presence())
+            else:
+                send_message(client, response_error('Имя пользователя уже занято.'))
+                self.clients.remove(client)
+                client.close()
+            return
+        # Если это сообщение, то добавляем его в очередь сообщений. Ответ не требуется.
+        elif is_message:
+            self.messages.append(message)
+            return
+        # Если клиент выходит
+        elif is_exit:
+            self.clients.remove(self.chats[chat_id][acc])
+            self.chats[chat_id][acc].close()
+            self.chats[chat_id].pop(acc)
+            return
+        # Иначе отдаём Bad request
+        else:
+            send_message(client, response_error('Запрос некорректен.'))
+            return
 
 
 @log_func(logger)
@@ -44,11 +154,6 @@ def arg_parser():
         exit(1)
 
     return listen_address, listen_port
-
-
-@log_func(logger)
-def encode_message(message: dict) -> bytes:
-    return json.dumps(message).encode('utf-8')
 
 
 @log_func(logger)
@@ -89,102 +194,6 @@ def send_message(sock, message):
 
 
 @log_func(logger)
-def process_client_message(message, messages_list, client, clients, chats: dict):
-    """
-    Обработчик сообщений от клиентов, принимает словарь - сообщение от клиента,
-    проверяет корректность, отправляет словарь-ответ в случае необходимости.
-    :param message:
-    :param messages_list:
-    :param client:
-    :param clients:
-    :param chats:
-    :return:
-    """
-    logger.debug(f'Разбор сообщения от клиента : {message}')
-
-    is_presence = ACTION in message and message[ACTION] == PRESENCE
-    is_message = ACTION in message and message[ACTION] == MESSAGE
-    is_exit = ACTION in message and message[ACTION] == EXIT
-    is_true_msg = TIME in message and CHATID in message and ACC in message
-
-    if not is_true_msg:  # Нет минимальных параметров
-        send_message(client, response_error('Запрос некорректен.'))
-        return
-
-    chat_id = message[CHATID]
-    acc = message[ACC]
-
-    # Если это сообщение о присутствии, принимаем и отвечаем
-    if is_presence:
-        # Если такой пользователь ещё не зарегистрирован, регистрируем, иначе отправляем ответ и завершаем соединение.
-        if chat_id not in chats:
-            chats[chat_id] = {acc: client}
-            send_message(client, response_presence())
-        elif acc not in chats[chat_id]:
-            chats[chat_id][acc] = client
-            send_message(client, response_presence())
-        else:
-            send_message(client, response_error('Имя пользователя уже занято.'))
-            clients.remove(client)
-            client.close()
-        return
-    # Если это сообщение, то добавляем его в очередь сообщений. Ответ не требуется.
-    elif is_message:
-        messages_list.append(message)
-        return
-    # Если клиент выходит
-    elif is_exit:
-        clients.remove(chats[chat_id][acc])
-        chats[chat_id][acc].close()
-        chats[chat_id].pop(acc)
-        return
-    # Иначе отдаём Bad request
-    else:
-        send_message(client, response_error('Запрос некорректен.'))
-        return
-
-
-@log_func(logger)
-def process_message(message, chats, listen_socks):
-    """
-    Функция адресной отправки сообщения определённому клиенту. Принимает словарь сообщение,
-    список зарегистрированных пользователей и слушающие сокеты. Ничего не возвращает.
-    :param message:
-    :param chats:
-    :param listen_socks:
-    :return:
-    """
-
-    acc, chat_id = message[ACC], message[CHATID]
-
-    on_acc = []
-    if chat_id in chats:
-        for recipient, sock in chats[chat_id].items():
-            on_acc.append(sock in listen_socks)
-            if recipient != acc and sock in listen_socks:
-                send_message(sock, encode_message(message))
-                logger.info(f'Отправлено сообщение пользователю {acc} в чат {chat_id}.')
-    else:
-        logger.error(f'Чат {chat_id} не зарегистрирован на сервере, отправка сообщения невозможна.')
-
-    if not any(on_acc):
-        raise ConnectionError
-
-
-@log_func(logger)
-def decode_message(message: bytes) -> dict:
-    if not message:
-        logger.warning(f'Сообщение пустое: {message}')
-        return {'Error': 400, 'msg': 'Пустой ответ сервера'}
-
-    try:
-        return json.loads(message.decode('utf-8'))
-    except ValueError:
-        logger.error(f'Ошибка json разбора: {message}')
-        return {'Error': 400, 'msg': f'Ошибка разбора ответа сервера: {message}'}
-
-
-@log_func(logger)
 def get_message(sock):
     """
     Утилита приёма и декодирования сообщения принимает байты, выдаёт словарь,
@@ -201,63 +210,12 @@ def get_message(sock):
     return None
 
 
-def mainloop():
-    """
-    Основной цикл обработки запросов клиентов
-    """
-    host, port = arg_parser()
+def main():
+    listen_address, listen_port = arg_parser()
 
-    logger.info(f'Запущен сервер: {host}:{port}')
-
-    transport = socket(AF_INET, SOCK_STREAM)
-    transport.bind((host, port))
-    transport.settimeout(0.5)
-    transport.listen(MAX_CONNECTIONS)
-
-    clients = []  # список клиентов
-    messages = []  # очередь сообщений
-    chats = dict()  # список чатов
-
-    while True:
-        try:
-            conn, addr = transport.accept()  # Проверка подключений
-        except OSError:
-            pass  # timeout вышел
-        else:
-            print("Получен запрос на соединение от %s" % str(addr))
-            clients.append(conn)
-
-        recv_data_lst, send_data_lst, err_lst = [], [], []
-
-        # Проверить наличие событий ввода-вывода
-        try:
-            if clients:
-                recv_data_lst, send_data_lst, err_lst = select(clients, clients, [], 0)
-        except Exception:
-            pass  # Ничего не делать, если какой-то клиент отключился
-
-        # принимаем сообщения и если ошибка, исключаем клиента.
-        if recv_data_lst:
-            for client_with_message in recv_data_lst:
-                try:
-                    process_client_message(get_message(client_with_message),
-                                           messages, client_with_message, clients, chats)
-                except Exception as e:
-                    logger.info(f'Клиент {client_with_message.getpeername()} отключился от сервера.{e}')
-                    clients.remove(client_with_message)
-
-        # Если есть сообщения, обрабатываем каждое.
-        for i in messages:
-            acc, chat_id = i[ACC], i[CHATID]
-            try:
-                process_message(i, chats, send_data_lst)
-            except Exception as e:
-                logger.info(f'Связь с клиентом с именем {acc} была потеряна: {e}')
-                clients.remove(chats[chat_id][acc])
-                chats[chat_id].pop(acc)
-
-        messages.clear()
+    server = Server(listen_address, listen_port)
+    server.main_loop()
 
 
 if __name__ == '__main__':
-    mainloop()
+    main()
