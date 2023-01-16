@@ -7,6 +7,7 @@ import log.server_log_config
 from log.logger_func import log_func
 from meta import ServerVerifier, Port
 from common.utils import *
+from server_database import Storage
 
 logger = logging.getLogger('chat.server')
 
@@ -15,13 +16,16 @@ logger = logging.getLogger('chat.server')
 class Server(metaclass=ServerVerifier):
     port = Port()
 
-    def __init__(self, host_addres, port):
+    def __init__(self, host_addres, port, database):
         # Параментры подключения
         self.addr = host_addres
         self.port = port
         self.clients = []  # список клиентов
         self.messages = []  # очередь сообщений
         self.chats = dict()  # список чатов
+
+        # База данных сервера
+        self.database = database
 
     def init_socket(self):
         logger.info(f'Запущен сервер: {self.addr}:{self.port}')
@@ -110,6 +114,8 @@ class Server(metaclass=ServerVerifier):
         if is_presence:
             # Если такой пользователь ещё не зарегистрирован, регистрируем, иначе отправляем ответ и завершаем соединение.
             if chat_id not in self.chats:
+                client_ip, client_port = client.getpeername()
+                # self.database.user_login(acc, client_ip, client_port)
                 self.chats[chat_id] = {acc: client}
                 send_message(client, response_presence())
             elif acc not in self.chats[chat_id]:
@@ -126,6 +132,7 @@ class Server(metaclass=ServerVerifier):
             return
         # Если клиент выходит
         elif is_exit:
+            # self.database.user_logout(acc)
             self.clients.remove(self.chats[chat_id][acc])
             self.chats[chat_id][acc].close()
             self.chats[chat_id].pop(acc)
@@ -211,9 +218,12 @@ def get_message(sock):
 
 
 def main():
+    # Инициализация базы данных
+    database = Storage()
+
     listen_address, listen_port = arg_parser()
 
-    server = Server(listen_address, listen_port)
+    server = Server(listen_address, listen_port, database)
     server.main_loop()
 
 
