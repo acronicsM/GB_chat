@@ -16,6 +16,9 @@ CHATID = 'chat_id'
 EXIT = 'exit'
 MAX_CONNECTIONS = 5
 
+# База данных для хранения данных сервера:
+SERVER_DATABASE = 'sqlite:///server_base.db3'
+
 
 def decode_message(message: bytes) -> dict:
     if not message:
