@@ -1,5 +1,8 @@
 import argparse
+import configparser
 import logging
+import os
+import sys
 from datetime import datetime
 from socket import socket, AF_INET, SOCK_STREAM
 from select import select
@@ -8,6 +11,10 @@ from log.logger_func import log_func
 from meta import ServerVerifier, Port
 from common.utils import *
 from server_database import Storage
+from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtCore import QTimer
+from server_gui import MainWindow, gui_create_model, HistoryWindow, create_stat_model, ConfigWindow
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
 
 logger = logging.getLogger('chat.server')
 
@@ -17,7 +24,7 @@ class Server(metaclass=ServerVerifier):
     port = Port()
 
     def __init__(self, host_addres, port, database):
-        # Параментры подключения
+        # Параметры подключения
         self.addr = host_addres
         self.port = port
         self.clients = []  # список клиентов
@@ -64,8 +71,10 @@ class Server(metaclass=ServerVerifier):
                 for client_with_message in recv_data_lst:
                     try:
                         self.process_client_message(get_message(client_with_message), client_with_message)
-                    except:
+                    except Exception as e:
+                        print(e)
                         logger.info(f'Клиент {client_with_message.getpeername()} отключился от сервера.')
+                        # self.database.user_logout(message[DESTINATION])
                         self.clients.remove(client_with_message)
 
             # Если есть сообщения, обрабатываем каждое.
@@ -103,6 +112,11 @@ class Server(metaclass=ServerVerifier):
         is_exit = ACTION in message and message[ACTION] == EXIT
         is_true_msg = TIME in message and CHATID in message and ACC in message
 
+        is_get_contacts = ACTION in message and message[ACTION] == GET_CONTACTS
+        is_add_cotact = ACTION in message and message[ACTION] == ADD_CONTACT
+        is_remove_contact = ACTION in message and message[ACTION] == REMOVE_CONTACT
+        is_all_users = ACTION in message and message[ACTION] == USERS_REQUEST
+
         if not is_true_msg:  # Нет минимальных параметров
             send_message(client, response_error('Запрос некорректен.'))
             return
@@ -114,8 +128,10 @@ class Server(metaclass=ServerVerifier):
         if is_presence:
             # Если такой пользователь ещё не зарегистрирован, регистрируем, иначе отправляем ответ и завершаем соединение.
             if chat_id not in self.chats:
+
                 client_ip, client_port = client.getpeername()
-                # self.database.user_login(acc, client_ip, client_port)
+                self.database.user_login(acc, client_ip, client_port)
+
                 self.chats[chat_id] = {acc: client}
                 send_message(client, response_presence())
             elif acc not in self.chats[chat_id]:
@@ -128,15 +144,34 @@ class Server(metaclass=ServerVerifier):
             return
         # Если это сообщение, то добавляем его в очередь сообщений. Ответ не требуется.
         elif is_message:
+            self.database.process_message(acc, chat_id)
             self.messages.append(message)
             return
         # Если клиент выходит
         elif is_exit:
-            # self.database.user_logout(acc)
+            self.database.user_logout(acc)
             self.clients.remove(self.chats[chat_id][acc])
             self.chats[chat_id][acc].close()
             self.chats[chat_id].pop(acc)
             return
+        # Если это запрос контакт-листа
+        elif is_get_contacts:
+            response = RESPONSE_202
+            response[LIST_INFO] = self.database.get_contacts(acc)
+            send_message(client, encode_message(response))
+        # Если это добавление контакта
+        elif is_add_cotact:
+            self.database.add_contact(acc, chat_id)
+            send_message(client, encode_message(RESPONSE_200))
+        # Если это удаление контакта
+        elif is_remove_contact:
+            self.database.remove_contact(acc, chat_id)
+            send_message(client, encode_message(RESPONSE_200))
+        # Если это запрос известных пользователей
+        elif is_all_users:
+            response = RESPONSE_202
+            response[LIST_INFO] = [user[0] for user in self.database.users_list()]
+            send_message(client, encode_message(response))
         # Иначе отдаём Bad request
         else:
             send_message(client, response_error('Запрос некорректен.'))
@@ -144,22 +179,13 @@ class Server(metaclass=ServerVerifier):
 
 
 @log_func(logger)
-def arg_parser():
-    """Парсер аргументов командной строки"""
+def arg_parser(default_port, default_address):
     parser = argparse.ArgumentParser()
-    parser.add_argument('-p', default=PORT, type=int, nargs='?')
-    parser.add_argument('-a', default=HOST, nargs='?')
-    namespace = parser.parse_args()
+    parser.add_argument('-p', default=default_port, type=int, nargs='?')
+    parser.add_argument('-a', default=default_address, nargs='?')
+    namespace = parser.parse_args(sys.argv[1:])
     listen_address = namespace.a
     listen_port = namespace.p
-
-    # проверка получения корректного номера порта для работы сервера.
-    if not 1023 < listen_port < 65536:
-        logger.critical(
-            f'Попытка запуска сервера с указанием неподходящего порта {listen_port}. '
-            f'Допустимы адреса с 1024 до 65535.')
-        exit(1)
-
     return listen_address, listen_port
 
 
@@ -218,10 +244,17 @@ def get_message(sock):
 
 
 def main():
-    # Инициализация базы данных
-    database = Storage()
+    # Загрузка файла конфигурации сервера
+    config = configparser.ConfigParser()
 
-    listen_address, listen_port = arg_parser()
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    config.read(f"{dir_path}/{'server.ini'}")
+
+    # Загрузка параметров командной строки, если нет параметров, то задаём значения по умолчанию.
+    listen_address, listen_port = arg_parser(config['SETTINGS']['Default_port'], config['SETTINGS']['Listen_Address'])
+
+    # Инициализация базы данных
+    database = Storage(os.path.join(config['SETTINGS']['Database_path'], config['SETTINGS']['Database_file']))
 
     server = Server(listen_address, listen_port, database)
     server.main_loop()
