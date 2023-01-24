@@ -1,54 +1,37 @@
-from json import loads, dumps
-from random import randint
+import json
+import sys
 
-HOST: str = 'localhost'
-PORT: int = 7777
-ACCOUNT_NAME = f'guest{randint(1, 99999999)}'
+sys.path.append('../')
+from common.variables import *
+from common.decos import log
 
-MAX_PACKAGE_LENGTH = 1024
-ACTION = 'action'
-PRESENCE = 'presence'
-MESSAGE = 'message'
-TIME = 'time'
-MESSAGE_TEXT = 'msg'
-ACC = 'ACCOUNT_NAME'
-CHATID = 'chat_id'
-EXIT = 'exit'
-MAX_CONNECTIONS = 5
-
-GET_CONTACTS = 'get_contacts'
-LIST_INFO = 'data_list'
-REMOVE_CONTACT = 'remove'
-ADD_CONTACT = 'add'
-USERS_REQUEST = 'get_users'
-RESPONSE = 'response'
-ERROR = 'error'
-
-# База данных для хранения данных сервера:
-SERVER_DATABASE = 'sqlite:///server_base.db3'
-
-# Словари - ответы:
-# 200
-RESPONSE_200 = {RESPONSE: 200}
-# 202
-RESPONSE_202 = {RESPONSE: 202,
-                LIST_INFO:None
-                }
-# 400
-RESPONSE_400 = {
-            RESPONSE: 400,
-            ERROR: None
-        }
-
-def decode_message(message: bytes) -> dict:
-    if not message:
-        return {'Error': 400, 'msg': 'Пустой ответ сервера'}
-
-    try:
-        return loads(message.decode('utf-8'))
-    except ValueError:
-        return {'Error': 400, 'msg': f'Ошибка разбора ответа сервера: {message}'}
+@log
+def get_message(client):
+    '''
+    Функция приёма сообщений от удалённых компьютеров.
+    Принимает сообщения JSON, декодирует полученное сообщение
+    и проверяет что получен словарь.
+    :param client: сокет для передачи данных.
+    :return: словарь - сообщение.
+    '''
+    encoded_response = client.recv(MAX_PACKAGE_LENGTH)
+    json_response = encoded_response.decode(ENCODING)
+    response = json.loads(json_response)
+    if isinstance(response, dict):
+        return response
+    else:
+        raise TypeError
 
 
-def encode_message(message: dict) -> bytes:
-    return dumps(message).encode('utf-8')
+@log
+def send_message(sock, message):
+    '''
+    Функция отправки словарей через сокет.
+    Кодирует словарь в формат JSON и отправляет через сокет.
+    :param sock: сокет для передачи
+    :param message: словарь для передачи
+    :return: ничего не возвращает
+    '''
+    js_message = json.dumps(message)
+    encoded_message = js_message.encode(ENCODING)
+    sock.send(encoded_message)
