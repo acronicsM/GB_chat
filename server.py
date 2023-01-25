@@ -18,9 +18,9 @@ logger = logging.getLogger('server')
 
 @log
 def arg_parser(default_port, default_address):
-    '''Парсер аргументов коммандной строки.'''
+    """Парсер аргументов командной строки."""
     logger.debug(
-        f'Инициализация парсера аргументов коммандной строки: {sys.argv}')
+        f'Инициализация парсера аргументов командной строки: {sys.argv}')
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', default=default_port, type=int, nargs='?')
     parser.add_argument('-a', default=default_address, nargs='?')
@@ -35,7 +35,7 @@ def arg_parser(default_port, default_address):
 
 @log
 def config_load():
-    '''Парсер конфигурационного ini файла.'''
+    """Парсер конфигурационного ini файла."""
     config = configparser.ConfigParser()
     dir_path = os.path.dirname(os.path.realpath(__file__))
     config.read(f"{dir_path}/{'server.ini'}")
@@ -54,12 +54,12 @@ def config_load():
 
 @log
 def main():
-    '''Основная функция'''
+    """Основная функция"""
     # Загрузка файла конфигурации сервера
     config = config_load()
 
     # Загрузка параметров командной строки, если нет параметров, то задаём
-    # значения по умоланию.
+    # значения по умолчанию.
     listen_address, listen_port, gui_flag = arg_parser(
         config['SETTINGS']['Default_port'], config['SETTINGS']['Listen_Address'])
 
@@ -74,20 +74,20 @@ def main():
     server.daemon = True
     server.start()
 
-    # Если  указан параметр без GUI то запускаем простенький обработчик
+    # Если указан параметр без GUI, то запускаем простенький обработчик
     # консольного ввода
     if gui_flag:
         while True:
             command = input('Введите exit для завершения работы сервера.')
             if command == 'exit':
-                # Если выход, то завршаем основной цикл сервера.
+                # Если выход, то завершаем основной цикл сервера.
                 server.running = False
                 server.join()
                 break
 
     # Если не указан запуск без GUI, то запускаем GUI:
     else:
-        # Создаём графическое окуружение для сервера:
+        # Создаём графическое окружение для сервера:
         server_app = QApplication(sys.argv)
         server_app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
         main_window = MainWindow(database, server, config)
