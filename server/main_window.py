@@ -9,7 +9,7 @@ from server.remove_user import DelUserDialog
 
 
 class MainWindow(QMainWindow):
-    '''Класс - основное окно сервера.'''
+    """Класс - основное окно сервера."""
 
     def __init__(self, database, server, config):
         # Конструктор предка
@@ -41,11 +41,11 @@ class MainWindow(QMainWindow):
         # Кнопка вывести историю сообщений
         self.show_history_button = QAction('История клиентов', self)
 
-        # Статусбар
+        # Статус бар
         self.statusBar()
         self.statusBar().showMessage('Server Working')
 
-        # Тулбар
+        # Тул бар
         self.toolbar = self.addToolBar('MainBar')
         self.toolbar.addAction(self.exitAction)
         self.toolbar.addAction(self.refresh_button)
@@ -86,10 +86,10 @@ class MainWindow(QMainWindow):
         self.show()
 
     def create_users_model(self):
-        '''Метод заполняющий таблицу активных пользователей.'''
+        """Метод заполняющий таблицу активных пользователей."""
         list_users = self.database.active_users_list()
-        list = QStandardItemModel()
-        list.setHorizontalHeaderLabels(
+        list_ = QStandardItemModel()
+        list_.setHorizontalHeaderLabels(
             ['Имя Клиента', 'IP Адрес', 'Порт', 'Время подключения'])
         for row in list_users:
             user, ip, port, time = row
@@ -99,35 +99,35 @@ class MainWindow(QMainWindow):
             ip.setEditable(False)
             port = QStandardItem(str(port))
             port.setEditable(False)
-            # Уберём милисекунды из строки времени, т.к. такая точность не
+            # Уберём миллисекунды из строки времени, т.к. такая точность не
             # требуется.
             time = QStandardItem(str(time.replace(microsecond=0)))
             time.setEditable(False)
-            list.appendRow([user, ip, port, time])
-        self.active_clients_table.setModel(list)
+            list_.appendRow([user, ip, port, time])
+        self.active_clients_table.setModel(list_)
         self.active_clients_table.resizeColumnsToContents()
         self.active_clients_table.resizeRowsToContents()
 
     def show_statistics(self):
-        '''Метод создающий окно со статистикой клиентов.'''
+        """Метод создающий окно со статистикой клиентов."""
         global stat_window
         stat_window = StatWindow(self.database)
         stat_window.show()
 
     def server_config(self):
-        '''Метод создающий окно с настройками сервера.'''
+        """Метод создающий окно с настройками сервера."""
         global config_window
         # Создаём окно и заносим в него текущие параметры
         config_window = ConfigWindow(self.config)
 
     def reg_user(self):
-        '''Метод создающий окно регистрации пользователя.'''
+        """Метод создающий окно регистрации пользователя."""
         global reg_window
         reg_window = RegisterUser(self.database, self.server_thread)
         reg_window.show()
 
     def rem_user(self):
-        '''Метод создающий окно удаления пользователя.'''
+        """Метод создающий окно удаления пользователя."""
         global rem_window
         rem_window = DelUserDialog(self.database, self.server_thread)
         rem_window.show()

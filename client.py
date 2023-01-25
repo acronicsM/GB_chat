@@ -14,18 +14,17 @@ from client.transport import ClientTransport
 from client.main_window import ClientMainWindow
 from client.start_dialog import UserNameDialog
 
-# Инициализация клиентского логера
 logger = logging.getLogger('client')
 
 
-# Парсер аргументов коммандной строки
+# Парсер аргументов командной строки
 @log
 def arg_parser():
-    '''
+    """
     Парсер аргументов командной строки, возвращает кортеж из 4 элементов
     адрес сервера, порт, имя пользователя, пароль.
     Выполняет проверку на корректность номера порта.
-    '''
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('addr', default=DEFAULT_IP_ADDRESS, nargs='?')
     parser.add_argument('port', default=DEFAULT_PORT, type=int, nargs='?')
@@ -48,19 +47,19 @@ def arg_parser():
 
 # Основная функция клиента
 if __name__ == '__main__':
-    # Загружаем параметы коммандной строки
+    # Загружаем параметры командной строки
     server_address, server_port, client_name, client_passwd = arg_parser()
     logger.debug('Args loaded')
 
-    # Создаём клиентокое приложение
+    # Создаём клиентское приложение
     client_app = QApplication(sys.argv)
 
-    # Если имя пользователя не было указано в командной строке то запросим его
+    # Если имя пользователя не было указано в командной строке, то запросим его
     start_dialog = UserNameDialog()
     if not client_name or not client_passwd:
         client_app.exec_()
         # Если пользователь ввёл имя и нажал ОК, то сохраняем ведённое и
-        # удаляем объект, инааче выходим
+        # удаляем объект, иначе выходим
         if start_dialog.ok_pressed:
             client_name = start_dialog.client_name.text()
             client_passwd = start_dialog.client_passwd.text()
@@ -70,7 +69,7 @@ if __name__ == '__main__':
 
     # Записываем логи
     logger.info(
-        f'Запущен клиент с парамертами: адрес сервера: {server_address} , порт: {server_port}, имя пользователя: {client_name}')
+        f'Запущен клиент с парамерами: адрес сервера: {server_address} , порт: {server_port}, имя пользователя: {client_name}')
 
     # Загружаем ключи с файла, если же файла нет, то генерируем новую пару.
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -83,7 +82,6 @@ if __name__ == '__main__':
         with open(key_file, 'rb') as key:
             keys = RSA.import_key(key.read())
 
-    #!!!keys.publickey().export_key()
     logger.debug("Keys sucsessfully loaded.")
     # Создаём объект базы данных
     database = ClientDatabase(client_name)
